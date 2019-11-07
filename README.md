@@ -8,3 +8,4 @@ The method for avoiding the Local Optima problem was taken from :
 https://simoncoenen.com/project_boxhead
 
 Currently I can generate The vector field and factor in obstacles into the cakculation. I'll implement steering behaviours soonish. 
+![Image of Yaktocat](https://i.imgur.com/iAZLWOQ.png)
