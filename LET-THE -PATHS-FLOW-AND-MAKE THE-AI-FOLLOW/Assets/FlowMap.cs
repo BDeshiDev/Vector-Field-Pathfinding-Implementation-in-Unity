@@ -11,6 +11,8 @@ public class FlowMap : MonoBehaviour
     public float tileScale = .5f;
 
     public bool showMap = true;
+    public bool showArrow = true;
+    public bool showDist = false;
     public LayerMask ObstacleMask;
 
     public int tileCountX = 60;
@@ -21,6 +23,13 @@ public class FlowMap : MonoBehaviour
     public Vector3 testTarget;
     public GridTile testTileTarget;
     public bool useTestTile = false;
+
+    private void Awake()
+    {
+        resizeMap();
+        calcObstacles();
+    }
+
 
     [ContextMenu("test recalc heat map dist")]
     public void calcDistToTarget()
@@ -34,12 +43,8 @@ public class FlowMap : MonoBehaviour
     }
 
 
-    
-
     public void calcDistToTarget(Vector3 target)
     {
-        resizeMap();
-
         if (getTileAtPoint(target, out var tileX, out var tileZ))
         {
             calcDistToTarget(tileX,tileZ);
@@ -53,9 +58,8 @@ public class FlowMap : MonoBehaviour
 
     public void calcDistToTarget(GridTile gt)
     {
-        resizeMap();
 
-        if (isValidTile(gt.x,gt.z))
+        if (isValidTile(gt.x,gt.z) && doesTileOverlapObstacle(gt.x,gt.z))
         {
             calcDistToTarget(gt.x, gt.z);
         }
@@ -76,9 +80,15 @@ public class FlowMap : MonoBehaviour
     public void calcDistToTarget(int tileX, int tileZ)
     {
         origin = transform.position;
-        testTileTarget = new GridTile(tileX, tileZ);
 
-        calcObstacles();
+        for (int z = 0; z < curTileCountZ; z++)
+        {
+            for (int x = 0; x < curTileCountX; x++)
+            {
+                heatMap[z, x].encounteredInBFS = false;
+                heatMap[z, x].flowVec = Vector3.zero;
+            }
+        }
 
         fillDistFromTargetWithBFS(tileZ, tileX);
 
@@ -127,7 +137,7 @@ public class FlowMap : MonoBehaviour
      * This also avoids local optima since you are always choosing something insteaf of having a zero vector in the field
      *using world position does not matter, only direction does. So we use world pos
      * ALSO I'm an idiot for not being sure if iterators work for structs
-     * If it did, we can access neighbours more easily with iteraors and avoid copy paste
+     * If it did, we can access neighbours more easily with iterators and avoid copy paste
      */
 
     private void createVecFieldNoLocalOptima(int goalX, int goalZ)
@@ -222,6 +232,7 @@ public class FlowMap : MonoBehaviour
                         }
                     }
                 }
+                heatMap[z,x].flowVec.Normalize();
             }
         }
     }
@@ -312,7 +323,7 @@ public class FlowMap : MonoBehaviour
         {
             for (int x = 0; x < curTileCountX; x++)
             {
-                heatMap[z, x].isObstacle = doesTileOverlapObstacle(origin, x, z);
+                heatMap[z, x].isObstacle = doesTileOverlapObstacle(x, z);
                 heatMap[z, x].encounteredInBFS = false;
                 heatMap[z, x].flowVec = Vector3.zero;
             }
@@ -322,8 +333,8 @@ public class FlowMap : MonoBehaviour
 
     public bool getTileAtPoint(Vector3 point,out int x, out int z)
     {
-        x = Mathf.CeilToInt((point.x - origin.x) / tileScale);
-        z = Mathf.CeilToInt((point.z - origin.z) / tileScale);
+        x = Mathf.CeilToInt((point.x - origin.x) / tileScale-1);
+        z = Mathf.CeilToInt((point.z - origin.z) / tileScale-1);
         
         return isValidTile(x,z);
     }
@@ -336,6 +347,17 @@ public class FlowMap : MonoBehaviour
     public bool isValidTileAndNotObstacle(int x, int z)
     {
         return isValidTile(x,z) && !heatMap[z,x].isObstacle;
+    }
+
+    public Vector3 evaluateAt(Vector3 position)
+    {
+        if (getTileAtPoint(position, out var x, out var z))
+        {
+            Debug.Log("point " +x + "," +z);
+            return heatMap[z, x].flowVec;
+        }
+
+        return Vector3.zero;
     }
 
     private void OnDrawGizmosSelected()
@@ -383,18 +405,20 @@ public class FlowMap : MonoBehaviour
 
     public void drawVec(Vector3 origin, Vector3 vec)
     {
-        Gizmos.DrawRay(origin + new Vector3(1, 0, 1) * tileScale / 2, vec * .5f);
-        Gizmos.DrawWireSphere(origin + new Vector3(1, 0, 1) * tileScale / 2 + vec * .5f, .025f);
+        Gizmos.DrawRay(origin + new Vector3(1, 0, 1) * tileScale / 2, tileScale * .5f * vec);
+        Gizmos.DrawWireSphere(origin + new Vector3(1, 0, 1) * tileScale / 2 + tileScale * .5f * vec, .05f *tileScale);
     }
     public void drawVecTile(Vector3 drawOrigin,VectorTile vt)
     {
-        drawVec(drawOrigin,vt.flowVec);
+        if(showArrow)
+            drawVec(drawOrigin,vt.flowVec);
 #if UNITY_EDITOR
-        Handles.Label(drawOrigin + new Vector3(1, 0, 1) * tileScale / 2,vt.distToGoal.ToString());
+        if(showDist)
+            Handles.Label(drawOrigin + new Vector3(1, 0, 1) * tileScale / 2,vt.distToGoal.ToString());
 #endif
     }
 
-    public bool doesTileOverlapObstacle(Vector3 origin, int x ,int z)
+    public bool doesTileOverlapObstacle(int x ,int z)
     {
         return Physics.OverlapBox(calcTileCenterWorldPos(x,z), Vector3.one * tileScale / 2,
                    Quaternion.identity, ObstacleMask).Length > 0;
