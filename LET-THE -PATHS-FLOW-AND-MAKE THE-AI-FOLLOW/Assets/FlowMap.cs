@@ -6,7 +6,7 @@ using UnityEngine;
 
 public class FlowMap : MonoBehaviour
 {
-    [SerializeField][HideInInspector]private VectorTile[,] heatMap = new VectorTile[4, 4];
+    private VectorTile[,] heatMap = new VectorTile[4, 4];
     public Vector3 origin;
     public float tileScale = .5f;
 
@@ -23,6 +23,11 @@ public class FlowMap : MonoBehaviour
     public Vector3 testTarget;
     public GridTile testTileTarget;
     public bool useTestTile = false;
+    
+    [Tooltip("Should be slightly smaller than 1, otherwise the collider may be considered part of nearby tile")]
+    public float obstacleCheckBoxScale = .85f;
+    [Tooltip("To stop physics based agents from getting stuck by trying to move diagonally while hugging a wall in same direction")]
+    public bool avoidDiagonalMovementOnCorners = true;
 
     private void Awake()
     {
@@ -31,7 +36,6 @@ public class FlowMap : MonoBehaviour
     }
 
 
-    [ContextMenu("test recalc heat map dist")]
     public void calcDistToTarget()
     {
         if(!useTestTile)
@@ -96,6 +100,7 @@ public class FlowMap : MonoBehaviour
         createVecFieldNoLocalOptima(tileX,tileZ);
     }
 
+    //has local optima problem
     private void createVecField(int goalX,int goalZ)
     {
         for (int z = 0; z < heatMap.GetLength(0); z++)
@@ -130,7 +135,7 @@ public class FlowMap : MonoBehaviour
     }
 
     /*
-     *We want each flowvec to flow from higher cost tile to lower cost ones
+     *We want each flowvec to flow from higher cost dist to lower dist ones
      *Hence we try to find neighbour with min dist to goal
      *And  this tile's world pos from it's world position 
      *The subtraction gives us a vector towards the smallest goal dist
@@ -139,7 +144,6 @@ public class FlowMap : MonoBehaviour
      * ALSO I'm an idiot for not being sure if iterators work for structs
      * If it did, we can access neighbours more easily with iterators and avoid copy paste
      */
-
     private void createVecFieldNoLocalOptima(int goalX, int goalZ)
     {
         for (int z = 0; z < heatMap.GetLength(0); z++)
@@ -152,7 +156,7 @@ public class FlowMap : MonoBehaviour
                     bool hasvalidNeighbour = false;
                     float minDist = 99999;
 
-                    if (isValidTileAndNotObstacle(x + 1, z))
+                    if (isValidTileAndNotObstacle(x + 1, z))//right
                     {
                         if (!hasvalidNeighbour || minDist > heatMap[z, x + 1].distToGoal)
                         {
@@ -162,7 +166,7 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x, z + 1))
+                    if (isValidTileAndNotObstacle(x, z + 1))//up
                     {
                         if (!hasvalidNeighbour || minDist > heatMap[z+1, x].distToGoal)
                         {
@@ -172,7 +176,7 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x - 1, z))
+                    if (isValidTileAndNotObstacle(x - 1, z))//left
                     {
                         if (!hasvalidNeighbour || minDist > heatMap[z, x - 1].distToGoal)
                         {
@@ -182,7 +186,7 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x, z - 1))
+                    if (isValidTileAndNotObstacle(x, z - 1))//down
                     {
                         if (!hasvalidNeighbour || minDist > heatMap[z-1, x ].distToGoal)
                         {
@@ -192,9 +196,10 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x + 1, z + 1))
+                    if (isValidTileAndNotObstacle(x + 1, z + 1))//topRight
                     {
-                        if (!hasvalidNeighbour || minDist > heatMap[z+1, x + 1].distToGoal)
+                        if (!hasvalidNeighbour || minDist > heatMap[z+1, x + 1].distToGoal &&
+                            (!avoidDiagonalMovementOnCorners || (isValidTileAndNotObstacle(x,z+1) && isValidTileAndNotObstacle(x+1, z))))//top AND right tile has to be free
                         {
                             hasvalidNeighbour = true;
                             minDist = heatMap[z+1, x + 1].distToGoal;
@@ -202,9 +207,10 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x + 1, z - 1))
+                    if (isValidTileAndNotObstacle(x + 1, z - 1))//bottomRight
                     {
-                        if (!hasvalidNeighbour || minDist > heatMap[z-1, x + 1].distToGoal)
+                        if (!hasvalidNeighbour || minDist > heatMap[z-1, x + 1].distToGoal &&
+                            (!avoidDiagonalMovementOnCorners || (isValidTileAndNotObstacle(x, z - 1) && isValidTileAndNotObstacle(x + 1, z))))//bottom AND right tile has to be free
                         {
                             hasvalidNeighbour = true;
                             minDist = heatMap[z-1, x + 1].distToGoal;
@@ -212,9 +218,10 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x - 1, z + 1))
+                    if (isValidTileAndNotObstacle(x - 1, z + 1))//topLeft
                     {
-                        if (!hasvalidNeighbour || minDist > heatMap[z+1, x - 1].distToGoal)
+                        if (!hasvalidNeighbour || minDist > heatMap[z+1, x - 1].distToGoal &&
+                            (!avoidDiagonalMovementOnCorners || (isValidTileAndNotObstacle(x, z + 1) && isValidTileAndNotObstacle(x - 1, z))))//top AND left tile has to be free
                         {
                             hasvalidNeighbour = true;
                             minDist = heatMap[z+1, x - 1].distToGoal;
@@ -222,9 +229,10 @@ public class FlowMap : MonoBehaviour
                         }
                     }
 
-                    if (isValidTileAndNotObstacle(x - 1, z - 1))
+                    if (isValidTileAndNotObstacle(x - 1, z - 1))//bottomLeft
                     {
-                        if (!hasvalidNeighbour || minDist > heatMap[z-1, x - 1].distToGoal)
+                        if (!hasvalidNeighbour || minDist > heatMap[z-1, x - 1].distToGoal &&
+                            (!avoidDiagonalMovementOnCorners || (isValidTileAndNotObstacle(x, z - 1) && isValidTileAndNotObstacle(x - 1, z))))//bottom AND left  tile has to be free
                         {
                             hasvalidNeighbour = true;
                             minDist = heatMap[z-1, x - 1].distToGoal;
@@ -353,7 +361,6 @@ public class FlowMap : MonoBehaviour
     {
         if (getTileAtPoint(position, out var x, out var z))
         {
-            Debug.Log("point " +x + "," +z);
             return heatMap[z, x].flowVec;
         }
 
@@ -413,14 +420,17 @@ public class FlowMap : MonoBehaviour
         if(showArrow)
             drawVec(drawOrigin,vt.flowVec);
 #if UNITY_EDITOR
-        if(showDist)
-            Handles.Label(drawOrigin + new Vector3(1, 0, 1) * tileScale / 2,vt.distToGoal.ToString());
+        if (showDist)
+        {
+            Handles.color =Color.magenta;
+            Handles.Label(drawOrigin + new Vector3(1, 0, 1) * tileScale / 2, vt.distToGoal.ToString());
+        }
 #endif
     }
 
     public bool doesTileOverlapObstacle(int x ,int z)
     {
-        return Physics.OverlapBox(calcTileCenterWorldPos(x,z), Vector3.one * tileScale / 2,
+        return Physics.OverlapBox(calcTileCenterWorldPos(x,z), Vector3.one * obstacleCheckBoxScale * tileScale / 2,
                    Quaternion.identity, ObstacleMask).Length > 0;
     }
 

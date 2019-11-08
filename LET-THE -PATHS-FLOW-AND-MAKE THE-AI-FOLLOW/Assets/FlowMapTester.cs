@@ -10,6 +10,7 @@ public class FlowMapTester : MonoBehaviour
     void Start()
     {
         flowMap = GetComponent<FlowMap>();
+        flowMap.calcDistToTarget(goal.position);
     }
 
     // Update is called once per frame
