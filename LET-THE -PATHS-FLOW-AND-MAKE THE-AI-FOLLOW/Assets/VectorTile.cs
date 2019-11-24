@@ -1,17 +1,29 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public struct VectorTile
+public class VectorTile:IHeapItem<VectorTile>
 {
-    public float distToGoal;
-    public Vector3 flowVec;
-
-    public bool encounteredInBFS;
+    public GridTile tilePos;
+    public float distToGoal;   
     public bool isObstacle;
+    public float moveCost = 1;
 
-    public void resetvalues()
+    public VectorTile(GridTile tilePos)
     {
-        encounteredInBFS = isObstacle = false;
+        this.tilePos = tilePos;
     }
+
+    public int CompareTo(VectorTile other)
+    {
+        return other.distToGoal.CompareTo(distToGoal);
+    }
+
+    public override string ToString()
+    {
+        return tilePos.ToString() + " D:" + distToGoal + " mc:" + moveCost;
+    }
+
+    public int HeapIndex { get; set; }
 }

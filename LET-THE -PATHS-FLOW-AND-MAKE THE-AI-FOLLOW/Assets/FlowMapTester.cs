@@ -13,7 +13,6 @@ public class FlowMapTester : MonoBehaviour
         flowMap.calcDistToTarget(goal.position);
     }
 
-    // Update is called once per frame
     private void Update()
     {
         flowMap.calcDistToTarget(goal.position);

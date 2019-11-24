@@ -9,6 +9,6 @@ public class flowFlee : SteerTowarsdDesiredVel
 
     public override Vector3 calcDesiredVel(Vector3 curVel, float maxVel)
     {
-        return -flowMap.evaluateAt(transform.position) * seekForce;
+        return flowMap.evaluateFleeAt(transform.position) * seekForce;
     }
 }
